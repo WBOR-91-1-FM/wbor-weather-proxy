@@ -19,6 +19,8 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, abort, jsonify
 
+from utils.discord import send_webhook
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
@@ -41,7 +43,7 @@ def get_weather():
     Fetch weather data from Tomorrow.io and return it as JSON.
     """
     now = time.time()
-    # Return cached data if fresh
+    # Return cached data if it's still fresh
     if CACHE["data"] and (now - CACHE["timestamp"] < CACHE_DURATION):
         log.info("Returning cached data")
         return jsonify(CACHE["data"])
@@ -57,8 +59,21 @@ def get_weather():
         response = requests.get(
             "https://api.tomorrow.io/v4/timelines", params=params, timeout=10
         )
+        if response.status_code == 429:
+            log.warning(
+                "Rate-limited by Tomorrow.io. Returning cached data if available."
+            )
+            send_webhook("Rate-limited by Tomorrow.io")
+            if CACHE["data"]:
+                return jsonify(CACHE["data"])
+            abort(
+                429,
+                description="Rate-limited by Tomorrow.io, and no cached data available.",
+            )
+
         response.raise_for_status()
         data = response.json()
+
     except requests.exceptions.RequestException as e:
         log.error("Error fetching data from Tomorrow.io: `%s`", e)
         abort(502, description="Failed to fetch data")
