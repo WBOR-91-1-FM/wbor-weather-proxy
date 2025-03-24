@@ -48,7 +48,7 @@ def get_weather():
 
     params = {
         "apikey": TOMORROW_API_KEY,
-        "location": "41.3276,-72.7673",
+        "location": "43.905979,-69.963375",
         "timesteps": "1m",
         "units": "imperial",
         "fields": "temperature,weatherCode",
