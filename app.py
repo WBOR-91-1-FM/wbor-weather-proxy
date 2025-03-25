@@ -30,6 +30,9 @@ app = Flask(__name__)
 
 CACHE = {"data": None, "timestamp": 0}
 CACHE_DURATION = 60  # seconds
+STATE = {
+    "rate_limit_notified": False  # Tracks if we've already sent a webhook for the current cycle
+}
 
 TOMORROW_API_KEY = os.environ.get("TOMORROW_API_KEY")
 if not TOMORROW_API_KEY:
@@ -42,6 +45,8 @@ async def get_weather():
     """
     Fetch weather data from Tomorrow.io and return it as JSON.
     """
+    rate_limit_notified = STATE["rate_limit_notified"]
+
     now = time.time()
     # Return cached data if it's still fresh
     if CACHE["data"] and (now - CACHE["timestamp"] < CACHE_DURATION):
@@ -59,14 +64,18 @@ async def get_weather():
         response = requests.get(
             "https://api.tomorrow.io/v4/timelines", params=params, timeout=10
         )
+
         if response.status_code == 429:
             logger.warning(
                 "Rate-limited by Tomorrow.io. Returning cached data if available."
             )
-            await send_webhook("Rate-limited by Tomorrow.io")
+            # Only send the webhook if we haven't already sent one for this round of rate limiting
+            if not rate_limit_notified:
+                await send_webhook("Rate-limited by Tomorrow.io")
+                STATE["rate_limit_notified"] = True
+
             if CACHE["data"]:
-                stale_data = CACHE["data"]
-                stale_data = stale_data.copy()
+                stale_data = CACHE["data"].copy()
                 stale_data["stale_data_returned"] = True
                 stale_data["error_code"] = 429
                 return jsonify(stale_data)
@@ -74,6 +83,10 @@ async def get_weather():
                 429,
                 description="Rate-limited by Tomorrow.io, and no cached data available.",
             )
+
+        # If we're here, it's a successful (non-429) response. Reset the rate limit flag.
+        if rate_limit_notified:
+            STATE["rate_limit_notified"] = False
 
         response.raise_for_status()
         data = response.json()
