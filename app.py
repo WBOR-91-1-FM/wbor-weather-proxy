@@ -63,7 +63,7 @@ def get_weather():
             log.warning(
                 "Rate-limited by Tomorrow.io. Returning cached data if available."
             )
-            send_webhook("Rate-limited by Tomorrow.io")
+            await send_webhook("Rate-limited by Tomorrow.io")
             if CACHE["data"]:
                 # Return stale data wrapped with error info
                 return jsonify(
