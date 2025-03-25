@@ -65,7 +65,14 @@ def get_weather():
             )
             send_webhook("Rate-limited by Tomorrow.io")
             if CACHE["data"]:
-                return jsonify(CACHE["data"])
+                # Return stale data wrapped with error info
+                return jsonify(
+                    {
+                        "stale_data_returned": True,
+                        "error_code": 429,
+                        "data": CACHE["data"],
+                    }
+                )
             abort(
                 429,
                 description="Rate-limited by Tomorrow.io, and no cached data available.",
