@@ -39,5 +39,5 @@ The included Makefile has targets for building and running the Docker container.
 Once running, the endpoint will be available at `http://localhost:4321/weather`. You can test it by running:
 
 ```sh
-curl http://localhost:5000/weather
+curl http://localhost:4321/weather
 ```
