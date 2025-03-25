@@ -22,7 +22,7 @@ from flask import Flask, abort, jsonify
 from utils.discord import send_webhook
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -33,19 +33,19 @@ CACHE_DURATION = 60  # seconds
 
 TOMORROW_API_KEY = os.environ.get("TOMORROW_API_KEY")
 if not TOMORROW_API_KEY:
-    log.error("TOMORROW_API_KEY is not set. Exiting.")
+    logger.error("TOMORROW_API_KEY is not set. Exiting.")
     sys.exit(1)
 
 
 @app.route("/weather", methods=["GET"])
-def get_weather():
+async def get_weather():
     """
     Fetch weather data from Tomorrow.io and return it as JSON.
     """
     now = time.time()
     # Return cached data if it's still fresh
     if CACHE["data"] and (now - CACHE["timestamp"] < CACHE_DURATION):
-        log.info("Returning cached data")
+        logger.info("Returning cached data")
         return jsonify(CACHE["data"])
 
     params = {
@@ -60,19 +60,16 @@ def get_weather():
             "https://api.tomorrow.io/v4/timelines", params=params, timeout=10
         )
         if response.status_code == 429:
-            log.warning(
+            logger.warning(
                 "Rate-limited by Tomorrow.io. Returning cached data if available."
             )
             await send_webhook("Rate-limited by Tomorrow.io")
             if CACHE["data"]:
-                # Return stale data wrapped with error info
-                return jsonify(
-                    {
-                        "stale_data_returned": True,
-                        "error_code": 429,
-                        "data": CACHE["data"],
-                    }
-                )
+                stale_data = CACHE["data"]
+                stale_data = stale_data.copy()
+                stale_data["stale_data_returned"] = True
+                stale_data["error_code"] = 429
+                return jsonify(stale_data)
             abort(
                 429,
                 description="Rate-limited by Tomorrow.io, and no cached data available.",
@@ -82,10 +79,10 @@ def get_weather():
         data = response.json()
 
     except requests.exceptions.RequestException as e:
-        log.error("Error fetching data from Tomorrow.io: `%s`", e)
+        logger.error("Error fetching data from Tomorrow.io: `%s`", e)
         abort(502, description="Failed to fetch data")
 
     CACHE["data"] = data
     CACHE["timestamp"] = now
-    log.info("Fetched fresh data from Tomorrow.io")
+    logger.info("Fetched fresh data from Tomorrow.io")
     return jsonify(data)
