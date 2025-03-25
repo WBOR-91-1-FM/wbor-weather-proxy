@@ -75,9 +75,9 @@ async def get_weather():
                 STATE["rate_limit_notified"] = True
 
             if CACHE["data"]:
-                stale_data = CACHE["data"].copy()
                 stale_data["stale_data_returned"] = True
                 stale_data["error_code"] = 429
+                stale_data = CACHE["data"].copy()
                 return jsonify(stale_data)
             abort(
                 429,
