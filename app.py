@@ -15,7 +15,7 @@ import os
 import sys
 import time
 
-import requests
+import aiohttp
 from dotenv import load_dotenv
 from flask import Flask, abort, jsonify
 
@@ -30,9 +30,7 @@ app = Flask(__name__)
 
 CACHE = {"data": None, "timestamp": 0}
 CACHE_DURATION = 60  # seconds
-STATE = {
-    "rate_limit_notified": False  # Tracks if we've already sent a webhook for the current cycle
-}
+STATE = {"rate_limit_notified": False}
 
 TOMORROW_API_KEY = os.environ.get("TOMORROW_API_KEY")
 if not TOMORROW_API_KEY:
@@ -46,9 +44,8 @@ async def get_weather():
     Fetch weather data from Tomorrow.io and return it as JSON.
     """
     rate_limit_notified = STATE["rate_limit_notified"]
-
     now = time.time()
-    # Return cached data if it's still fresh
+
     if CACHE["data"] and (now - CACHE["timestamp"] < CACHE_DURATION):
         logger.info("Returning cached data")
         return jsonify(CACHE["data"])
@@ -60,39 +57,41 @@ async def get_weather():
         "units": "imperial",
         "fields": "temperature,weatherCode",
     }
+
     try:
-        response = requests.get(
-            "https://api.tomorrow.io/v4/timelines", params=params, timeout=10
-        )
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://api.tomorrow.io/v4/timelines", params=params
+            ) as resp:
+                if resp.status == 429:
+                    logger.warning(
+                        "Rate-limited by Tomorrow.io. Returning cached data if available."
+                    )
+                    if not rate_limit_notified:
+                        await send_webhook("Rate-limited by Tomorrow.io")
+                        STATE["rate_limit_notified"] = True
 
-        if response.status_code == 429:
-            logger.warning(
-                "Rate-limited by Tomorrow.io. Returning cached data if available."
-            )
-            # Only send the webhook if we haven't already sent one for this round of rate limiting
-            if not rate_limit_notified:
-                await send_webhook("Rate-limited by Tomorrow.io")
-                STATE["rate_limit_notified"] = True
+                    if CACHE["data"]:
+                        stale_data = CACHE["data"].copy()
+                        stale_data["stale_data_returned"] = True
+                        stale_data["error_code"] = 429
+                        return jsonify(stale_data)
 
-            if CACHE["data"]:
-                stale_data["stale_data_returned"] = True
-                stale_data["error_code"] = 429
-                stale_data = CACHE["data"].copy()
-                return jsonify(stale_data)
-            abort(
-                429,
-                description="Rate-limited by Tomorrow.io, and no cached data available.",
-            )
+                    abort(
+                        429,
+                        description="Rate-limited by Tomorrow.io, and no cached data available.",
+                    )
 
-        # If we're here, it's a successful (non-429) response. Reset the rate limit flag.
-        if rate_limit_notified:
-            STATE["rate_limit_notified"] = False
+                # If we're here, it's a successful (non-429) response.
+                # Reset the rate limit flag.
+                if rate_limit_notified:
+                    STATE["rate_limit_notified"] = False
 
-        response.raise_for_status()
-        data = response.json()
+                resp.raise_for_status()
+                data = await resp.json()
 
-    except requests.exceptions.RequestException as e:
-        logger.error("Error fetching data from Tomorrow.io: `%s`", e)
+    except aiohttp.ClientError as e:
+        logger.error("Error fetching data from Tomorrow.io: %s", e)
         abort(502, description="Failed to fetch data")
 
     CACHE["data"] = data
