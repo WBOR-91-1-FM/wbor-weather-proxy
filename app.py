@@ -17,7 +17,7 @@ import time
 
 import aiohttp
 from dotenv import load_dotenv
-from flask import Flask, abort, jsonify
+from quart import Quart, abort, jsonify
 
 from utils.discord import send_webhook
 
@@ -26,11 +26,13 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Quart(__name__)
 
 CACHE = {"data": None, "timestamp": 0}
 CACHE_DURATION = 60  # seconds
-STATE = {"rate_limit_notified": False}
+STATE = {
+    "rate_limit_notified": False  # Tracks if we've already sent a webhook for this cycle
+}
 
 TOMORROW_API_KEY = os.environ.get("TOMORROW_API_KEY")
 if not TOMORROW_API_KEY:
@@ -46,6 +48,7 @@ async def get_weather():
     rate_limit_notified = STATE["rate_limit_notified"]
     now = time.time()
 
+    # Return cached data if it's still fresh
     if CACHE["data"] and (now - CACHE["timestamp"] < CACHE_DURATION):
         logger.info("Returning cached data")
         return jsonify(CACHE["data"])

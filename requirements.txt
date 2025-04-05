@@ -1,5 +1,5 @@
-Flask[async]
-python-dotenv
+quart
+python-dotenv==1.0.1
 aiohttp
 gunicorn
 discord-webhook[async]
