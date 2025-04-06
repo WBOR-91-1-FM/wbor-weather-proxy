@@ -50,12 +50,12 @@ async def get_weather():
 
     # Return cached data if it's still fresh
     if CACHE["data"] and (now - CACHE["timestamp"] < CACHE_DURATION):
-        logger.info("Returning cached data")
+        logger.debug("Returning cached data")
         return jsonify(CACHE["data"])
 
     params = {
         "apikey": TOMORROW_API_KEY,
-        "location": "43.905979,-69.963375",
+        "location": "43.905979,-69.963375",  # Brunswick, ME
         "timesteps": "1m",
         "units": "imperial",
         "fields": "temperature,weatherCode",
@@ -99,5 +99,5 @@ async def get_weather():
 
     CACHE["data"] = data
     CACHE["timestamp"] = now
-    logger.info("Fetched fresh data from Tomorrow.io")
+    logger.debug("Fetched fresh data from Tomorrow.io")
     return jsonify(data)
