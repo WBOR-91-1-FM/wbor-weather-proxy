@@ -3,7 +3,7 @@ Proxy our Tomorrow.io API calls. Polls the API and caches results.
 Hardcoded to return data for Brunswick, ME.
 
 Author: Mason Daugherty <@mdrxy>
-Version: 1.0.0
+Version: 1.0.2
 Last Modified: 2025-03-23
 
 Changelog:
