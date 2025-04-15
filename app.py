@@ -1,6 +1,6 @@
 """
-Proxy our Tomorrow.io API calls. Polls the API and caches results for 60
-seconds. Hard coded to return data from Brunswick, ME.
+Proxy our Tomorrow.io API calls. Polls the API and caches results.
+Hardcoded to return data for Brunswick, ME.
 
 Author: Mason Daugherty <@mdrxy>
 Version: 1.0.0
@@ -8,6 +8,10 @@ Last Modified: 2025-03-23
 
 Changelog:
     - 1.0.0 (2025-03-23): Initial release.
+    - 1.0.1 (2025-04-05): Fixes, refactoring, and indicate in response
+        whether stale data was returned.
+    - 1.0.2 (2025-04-15): Make the cache duration configurable via an
+        environment variable.
 """
 
 import logging
@@ -28,11 +32,11 @@ load_dotenv()
 
 app = Quart(__name__)
 
+BRUNSWICK_ME = "43.905979,-69.963375"
+
 CACHE = {"data": None, "timestamp": 0}
-CACHE_DURATION = 60  # seconds
-STATE = {
-    "rate_limit_notified": False  # Tracks if we've already sent a webhook for this cycle
-}
+CACHE_DURATION = os.environ.get("CACHE_DURATION", 60)  # seconds
+STATE = {"rate_limit_notified": False}  # Track if we've sent a msg for cycle
 
 TOMORROW_API_KEY = os.environ.get("TOMORROW_API_KEY")
 if not TOMORROW_API_KEY:
@@ -55,7 +59,7 @@ async def get_weather():
 
     params = {
         "apikey": TOMORROW_API_KEY,
-        "location": "43.905979,-69.963375",  # Brunswick, ME
+        "location": BRUNSWICK_ME,
         "timesteps": "1m",
         "units": "imperial",
         "fields": "temperature,weatherCode",
