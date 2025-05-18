@@ -19,7 +19,15 @@ build:
 start: run
 
 run: stop
-	docker run -d --restart=always --network $(NETWORK_NAME) -p 4321:5000 --name $(CONTAINER_NAME) $(IMAGE_NAME)
+	docker run -d \
+		--restart=always \
+		--network $(NETWORK_NAME) \
+		-p 4321:5000 \
+		--log-driver json-file \
+		--log-opt max-size=30m \
+		--log-opt max-file=30 \
+		--name $(CONTAINER_NAME) \
+		$(IMAGE_NAME)
 
 stop:
 	@echo "Checking if container $(CONTAINER_NAME) is running..."
