@@ -3,8 +3,8 @@ Proxy our Tomorrow.io API calls. Polls the API and caches results.
 Hardcoded to return data for Brunswick, ME.
 
 Author: Mason Daugherty <@mdrxy>
-Version: 1.1.1
-Last Modified: 2025-05-05
+Version: 1.1.2
+Last Modified: 2025-05-29
 
 Changelog:
     - 1.0.0 (2025-03-23): Initial release.
@@ -16,6 +16,7 @@ Changelog:
         cache duration to 6 minutes (10 reqs/hr).
     - 1.1.1 (2025-05-05): Re-added Discord notifications on rate-limit
         events.
+    - 1.1.2 (2025-05-29): Added healthcheck endpoint.
 """
 
 import asyncio
@@ -51,6 +52,14 @@ TOMORROW_API_KEY = os.environ.get("TOMORROW_API_KEY")
 if not TOMORROW_API_KEY:
     logger.error("TOMORROW_API_KEY is not set. Exiting.")
     sys.exit(1)
+
+
+@app.route("/health", methods=["GET"])
+async def health():
+    """
+    Simple healthcheck endpoint.
+    """
+    return jsonify({"status": "ok"}), 200
 
 
 async def fetch_with_backoff(  # pylint: disable=too-many-arguments, too-many-positional-arguments
